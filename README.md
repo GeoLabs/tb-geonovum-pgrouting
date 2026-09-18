@@ -34,7 +34,11 @@ CREATE EXTENSION IF NOT EXISTS pgrouting;
 
 - `k8s/pgrouting-db.yaml` — Kubernetes namespace, secret, PVC, StatefulSet and service for the dedicated database
 - `scripts/import_pdok_roads.py` — Python script that consumes OGC API - Features output from the PDOK road dataset and imports it into PostgreSQL
-- `docs/` — additional operational notes if needed
+- `scripts/deploy_zoo_process.sh` — deploys the OGC API process providers into the existing ZOO-Project release
+- `scripts/deploy_ui.sh` — deploys the UI as an isolated web application without restarting ZOO-Project
+- `k8s/routing-ui.yaml` — dedicated UI Deployment, Service, and Ingress
+- `zoo-process/` — ZOO-Project process descriptors and Python providers
+- `ui/` — static Leaflet application served by the ZOO-Project Apache container
 
 ## Deployment
 
@@ -242,21 +246,60 @@ pgrouting-db.routing.svc.cluster.local:5432
 
 ## ZOO-Project routing process
 
-The `routing` process follows the former MapMint WPS routing design: it accepts
+The `routing` process is exposed through OGC API - Processes. It accepts
 `startPoint` and `endPoint`, finds their nearest NWB graph vertices, executes
 `pgr_dijkstra`, and returns the ordered route segments as GeoJSON. Coordinates
 use the `longitude,latitude` format in EPSG:4326.
 
-Deploy the process into `/usr/lib/cgi-bin` in both ZOO runtimes:
+### Deploy the processes
+
+Prerequisites:
+
+- `kubectl` access to the target cluster;
+- an existing ZOO-Project release in namespace `host1-tb-geonovum`;
+- deployments `zoo-project-dru-zookernel` and `zoo-project-dru-zoofpm`;
+- the routing database and `pgrouting-db-secret` in namespace `routing`.
+
+From the repository root, run:
 
 ```bash
 ./scripts/deploy_zoo_process.sh
 ```
 
-The script mounts the process from a ConfigMap, copies the routing database
-credentials into a namespace-local Secret, and restarts `zookernel` and
-`zoofpm`. Run it again after a Helm upgrade because the current chart does not
-declare these additional mounts.
+The script deploys the process providers into the existing ZOO runtime:
+
+1. copies the routing database credentials into the `zoo-routing-db` Secret in
+   the ZOO namespace;
+2. creates or updates the `zoo-routing-process` ConfigMap and mounts the process
+   providers under `/usr/lib/cgi-bin` in both ZOO runtimes;
+3. restarts `zookernel` and `zoofpm` and waits for both rollouts.
+
+The target resources can be overridden when release names or namespaces differ:
+
+```bash
+KUBE_CONTEXT=my-context \
+ZOO_NAMESPACE=my-zoo-namespace \
+ROUTING_NAMESPACE=routing \
+ZOO_KERNEL_DEPLOYMENT=my-zookernel \
+ZOO_FPM_DEPLOYMENT=my-zoofpm \
+./scripts/deploy_zoo_process.sh
+```
+
+The current Helm chart does not declare these additional mounts. Run the script
+again after a Helm upgrade that replaces either ZOO deployment.
+
+Validate the deployment:
+
+```bash
+kubectl -n host1-tb-geonovum get configmap \
+    zoo-routing-process zoo-routing-ui
+kubectl -n host1-tb-geonovum rollout status \
+    deployment/zoo-project-dru-zookernel
+kubectl -n host1-tb-geonovum rollout status \
+    deployment/zoo-project-dru-zoofpm
+curl --fail https://host1.tb.geonovum.geolabs.fr/ogc-api/processes/routing
+curl --fail https://host1.tb.geonovum.geolabs.fr/routing-ui/
+```
 
 ### OGC API - Processes demonstration
 
@@ -310,22 +353,67 @@ large float value used by AHN as NoData.
 The tested 1,147.54 metre route produced 2,340 profile samples with elevations
 between 0.396 and 2.852 metres NAP.
 
-### WPS 1.0 compatibility demonstration
-
-```bash
-curl --get \
-    'https://host1.tb.geonovum.geolabs.fr/cgi-bin/zoo_loader.cgi' \
-    --data-urlencode 'service=WPS' \
-    --data-urlencode 'version=1.0.0' \
-    --data-urlencode 'request=Execute' \
-    --data-urlencode 'Identifier=routing' \
-    --data-urlencode 'DataInputs=startPoint=4.8952,52.3702;endPoint=4.9001,52.3640;corridorMeters=5000' \
-    --data 'RawDataOutput=Result'
-```
-
 ## Interactive routing map
 
-Open the deployed interface at:
+### Safe standalone deployment
+
+The UI is deployed independently from ZOO-Project. This avoids patching or
+restarting `zookernel` and `zoofpm` when HTML, CSS, or JavaScript changes.
+
+Prerequisites:
+
+- the NGINX Ingress controller and `nginx` IngressClass;
+- namespace `host1-tb-geonovum`;
+- TLS secret `host1-tb-geonovum-letsencrypt-tls` in that namespace;
+- the existing `/ogc-api` endpoint used by the browser to execute processes.
+
+Validate the generated resources without changing the cluster:
+
+```bash
+kubectl create configmap zoo-routing-ui \
+    --namespace host1-tb-geonovum \
+    --from-file=index.html=ui/index.html \
+    --from-file=styles.css=ui/styles.css \
+    --from-file=app.js=ui/app.js \
+    --dry-run=client -o yaml >/tmp/routing-ui-configmap.yaml
+kubectl apply --dry-run=server -f /tmp/routing-ui-configmap.yaml
+kubectl --namespace host1-tb-geonovum apply --dry-run=server \
+    -f k8s/routing-ui.yaml
+```
+
+Deploy only the UI:
+
+```bash
+./scripts/deploy_ui.sh
+```
+
+This command creates or updates only these resources:
+
+- ConfigMap `zoo-routing-ui`;
+- Deployment `routing-ui`;
+- Service `routing-ui`;
+- Ingress `routing-ui` with the more specific `/routing-ui` path.
+
+It does not modify or restart the ZOO-Project deployments. The existing `/`
+and `/ogc-api` traffic continues to use `zoo-project-dru-service`.
+
+Validate the standalone UI:
+
+```bash
+kubectl -n host1-tb-geonovum rollout status deployment/routing-ui
+kubectl -n host1-tb-geonovum get service,ingress routing-ui
+curl --fail https://host1.tb.geonovum.geolabs.fr/routing-ui/
+curl --fail https://host1.tb.geonovum.geolabs.fr/ogc-api/processes/routing
+```
+
+Rollback affects only the standalone UI:
+
+```bash
+kubectl delete -f k8s/routing-ui.yaml
+kubectl -n host1-tb-geonovum delete configmap zoo-routing-ui
+```
+
+After running `scripts/deploy_ui.sh`, open:
 
 ```text
 https://host1.tb.geonovum.geolabs.fr/routing-ui/

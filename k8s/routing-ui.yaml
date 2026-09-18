@@ -1,0 +1,82 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: routing-ui
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: routing-ui
+  template:
+    metadata:
+      labels:
+        app: routing-ui
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:1.27-alpine
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /routing-ui/
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /routing-ui/
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+          volumeMounts:
+            - name: routing-ui
+              mountPath: /usr/share/nginx/html/routing-ui
+              readOnly: true
+      volumes:
+        - name: routing-ui
+          configMap:
+            name: zoo-routing-ui
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: routing-ui
+spec:
+  selector:
+    app: routing-ui
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: routing-ui
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - host1.tb.geonovum.geolabs.fr
+      secretName: host1-tb-geonovum-letsencrypt-tls
+  rules:
+    - host: host1.tb.geonovum.geolabs.fr
+      http:
+        paths:
+          - path: /routing-ui
+            pathType: Prefix
+            backend:
+              service:
+                name: routing-ui
+                port:
+                  number: 80
