@@ -71,6 +71,31 @@ https://api.pdok.nl/rws/nationaal-wegenbestand-wegen/ogc/v1
 
 This service exposes vector features, typically as GeoJSON, and can be consumed by a Python importer script or by GDAL/ogr2ogr.
 
+### Data provenance and compliance note
+
+| Field | Recorded value |
+| --- | --- |
+| Dataset | Nationaal Wegenbestand (NWB) - Wegen, `wegvakken` collection |
+| Data provider | Rijkswaterstaat (RWS), published through PDOK |
+| Source service | [PDOK NWB OGC API - Features](https://api.pdok.nl/rws/nationaal-wegenbestand-wegen/ogc/v1/) |
+| Dataset metadata | [Nationaal Georegister record](https://nationaalgeoregister.nl/geonetwork/srv/dut/catalog.search#/metadata/a9b7026e-0a81-4813-93bd-ba49e6f28502) |
+| Licence | [CC0 1.0 Universal](https://creativecommons.org/publicdomain/zero/1.0/) |
+| Retrieval date | 2026-09-18 |
+| Retrieval method | HTTPS requests to the OGC API - Features `wegvakken/items` endpoint, using GeoJSON output, EPSG:28992, 1,000-feature pages, and the server-provided cursor-based `next` links until no further page was advertised |
+| Imported result | 1,652,111 unique road features stored in `public.roads` |
+
+The OGC API landing document declares the licence through a `rel="license"`
+link titled `CC0 1.0`. CC0 permits copying, modification, redistribution, and
+commercial reuse without requesting permission. The source remains identified
+here for provenance and auditability; this identification must not be presented
+as endorsement by Rijkswaterstaat, PDOK, or Creative Commons.
+
+The importer commits each page independently and stores the next cursor in
+`public.pdok_import_state`. Feature identifiers are used for idempotent upserts,
+so a resumed or repeated retrieval does not intentionally create duplicate
+records. The retained `full-import.log` records completion of all 1,653 pages
+and the final imported feature count.
+
 For integration, the recommended pattern is:
 
 1. read the OGC API Feature collection metadata
@@ -265,6 +290,16 @@ ZOO-Project processes:
    downloads a bounded `dtm_05m` GeoTIFF from the PDOK AHN4 WCS, and stores it
    below `/usr/com/zoo-project/ahn-cache`.
 3. `GdalExtractProfile` samples the staged raster along the transformed line.
+
+The first two calls are sequential and synchronous. While the elevation profile
+is being produced, the UI displays the active request explicitly:
+
+- `1/2 · StageAHN` while PDOK data is downloaded and the terrain raster is prepared;
+- `2/2 · GdalExtractProfile` while elevations are sampled along the route.
+
+The browser sends `GdalExtractProfile` only after the synchronous `StageAHN`
+response has returned, so the second request is not visible in network history
+during the first stage.
 
 `StageAHN` is deliberately restricted to the fixed PDOK AHN endpoint. It caps
 requests at 16 million pixels, uses deterministic cache names, and fills AHN

@@ -192,14 +192,14 @@ function clearElevationMarker() {
   }
 }
 
-function showElevationLoading() {
+function showElevationLoading(stage, detail) {
   clearElevationMarker();
   elements.elevationProfile.hidden = false;
   elements.elevationProfile.classList.add("loading");
-  elements.elevationRange.textContent = "Preparing AHN terrain…";
+  elements.elevationRange.textContent = stage;
   elements.elevationChart.innerHTML = `
     <line class="profile-loading-line" x1="0" y1="60" x2="320" y2="60"></line>
-    <text class="profile-loading-text" x="160" y="38" text-anchor="middle">Downloading and sampling elevation</text>
+    <text class="profile-loading-text" x="160" y="38" text-anchor="middle">${detail}</text>
   `;
 }
 
@@ -318,6 +318,8 @@ function renderElevationProfile(coordinates, route) {
 }
 
 async function loadElevationProfile(route) {
+  showElevationLoading("1/2 · StageAHN", "Downloading and preparing AHN terrain");
+  elements.routeMessage.textContent = "Route calculated. StageAHN is preparing the terrain raster…";
   const staged = await executeProcess(STAGE_AHN_PROCESS_URL, {
     inputs: {
       Geometry: { value: route, mediaType: "application/geo+json" },
@@ -330,6 +332,8 @@ async function loadElevationProfile(route) {
     response: "document",
   });
 
+  showElevationLoading("2/2 · GdalExtractProfile", "Sampling elevation along the route");
+  elements.routeMessage.textContent = "Terrain ready. GdalExtractProfile is sampling the route…";
   const profile = await executeProcess(PROFILE_PROCESS_URL, {
     inputs: {
       RasterFile: staged.RasterFile,
@@ -432,7 +436,6 @@ async function calculateRoute() {
     elements.routeSegments.textContent = payload.numberReturned.toLocaleString();
     elements.routeResult.hidden = false;
     elements.routeMessage.textContent = "Route calculated. Loading AHN terrain profile…";
-    showElevationLoading();
     try {
       await loadElevationProfile(payload);
       elements.routeMessage.textContent = "Route and AHN terrain profile calculated.";
