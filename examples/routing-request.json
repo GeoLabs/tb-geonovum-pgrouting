@@ -1,0 +1,13 @@
+{
+  "inputs": {
+    "startPoint": "4.8952,52.3702",
+    "endPoint": "4.9001,52.3640",
+    "corridorMeters": 5000
+  },
+  "outputs": {
+    "Result": {
+      "transmissionMode": "value"
+    }
+  },
+  "response": "raw"
+}

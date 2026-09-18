@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#14231d">
+  <title>NWB Route Explorer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="app-shell">
+    <section class="map-region" aria-label="Routing map">
+      <div id="map"></div>
+
+      <header class="brand-bar">
+        <div class="brand-mark" aria-hidden="true">N</div>
+        <div>
+          <h1>NWB Route Explorer</h1>
+          <p>PDOK road network · ZOO-Project routing</p>
+        </div>
+      </header>
+
+      <div class="map-status" id="network-status" role="status">Move closer to load the road network</div>
+
+      <aside class="route-panel" aria-label="Route controls">
+        <div class="panel-heading">
+          <div>
+            <span class="eyebrow">Shortest path</span>
+            <h2>Plan a route</h2>
+          </div>
+          <button class="icon-button" id="reset-button" type="button" title="Clear route" aria-label="Clear route">
+            <span data-lucide="trash-2"></span>
+          </button>
+        </div>
+
+        <div class="placement-control" role="group" aria-label="Point to place">
+          <button class="placement-button active" id="start-mode" type="button" aria-pressed="true">
+            <span class="point-dot start"></span>
+            Start
+          </button>
+          <button class="placement-button" id="end-mode" type="button" aria-pressed="false">
+            <span class="point-dot end"></span>
+            Finish
+          </button>
+        </div>
+
+        <div class="point-list">
+          <label class="point-field">
+            <span class="point-letter start">A</span>
+            <span>
+              <strong>Start</strong>
+              <input id="start-coordinate" type="text" placeholder="Click the map" readonly>
+            </span>
+          </label>
+          <div class="point-connector"></div>
+          <label class="point-field">
+            <span class="point-letter end">B</span>
+            <span>
+              <strong>Finish</strong>
+              <input id="end-coordinate" type="text" placeholder="Click the map" readonly>
+            </span>
+          </label>
+        </div>
+
+        <button class="route-button" id="route-button" type="button" disabled>
+          <span data-lucide="route"></span>
+          <span>Calculate route</span>
+        </button>
+
+        <div class="route-result" id="route-result" hidden>
+          <div>
+            <span class="metric-label">Distance</span>
+            <strong id="route-distance">-</strong>
+          </div>
+          <div>
+            <span class="metric-label">Segments</span>
+            <strong id="route-segments">-</strong>
+          </div>
+        </div>
+
+        <section class="elevation-profile" id="elevation-profile" aria-label="Elevation profile" hidden>
+          <div class="profile-heading">
+            <span class="metric-label">AHN4 terrain profile</span>
+            <span id="elevation-range">-</span>
+          </div>
+          <svg id="elevation-chart" viewBox="0 0 320 92" role="img" aria-label="Route elevation chart"></svg>
+        </section>
+
+        <p class="message" id="route-message" role="status">Select a start point, then a finish point.</p>
+      </aside>
+
+      <div class="legend" aria-label="Map legend">
+        <span><i class="legend-road"></i> PDOK NWB</span>
+        <span><i class="legend-route"></i> Calculated route</span>
+      </div>
+    </section>
+  </main>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

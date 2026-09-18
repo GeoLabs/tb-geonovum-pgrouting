@@ -1,0 +1,94 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: routing
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: pgrouting-db-secret
+  namespace: routing
+stringData:
+  POSTGRES_DB: routing
+  POSTGRES_USER: routing
+  POSTGRES_PASSWORD: change-me
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pgrouting-data
+  namespace: routing
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: standard
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: pgrouting-postgres
+  namespace: routing
+spec:
+  serviceName: pgrouting-db
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pgrouting-postgres
+  template:
+    metadata:
+      labels:
+        app: pgrouting-postgres
+    spec:
+      containers:
+        - name: postgres
+          image: pgrouting/pgrouting:16-3.5-4.0.1
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5432
+          envFrom:
+            - secretRef:
+                name: pgrouting-db-secret
+          env:
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - name: pgrouting-data
+              mountPath: /var/lib/postgresql/data
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: 1
+              memory: 2Gi
+      volumes:
+        - name: pgrouting-data
+          persistentVolumeClaim:
+            claimName: pgrouting-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pgrouting-db
+  namespace: routing
+spec:
+  selector:
+    app: pgrouting-postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+  type: ClusterIP

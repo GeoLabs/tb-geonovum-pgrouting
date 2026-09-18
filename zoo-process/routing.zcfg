@@ -1,0 +1,58 @@
+[routing]
+ Title = NWB shortest path
+ Abstract = Compute a shortest path over the Dutch NWB road network using PostGIS and pgRouting.
+ processVersion = 1.0.0
+ storeSupported = true
+ statusSupported = true
+ serviceProvider = routing_service
+ serviceType = Python
+ <MetaData>
+   title = PDOK NWB routing
+ </MetaData>
+ <DataInputs>
+  [startPoint]
+   Title = Starting point
+   Abstract = Start longitude and latitude in EPSG:4326, formatted as lon,lat.
+   minOccurs = 1
+   maxOccurs = 1
+   <LiteralData>
+    DataType = string
+    <Default />
+   </LiteralData>
+  [endPoint]
+   Title = Ending point
+   Abstract = End longitude and latitude in EPSG:4326, formatted as lon,lat.
+   minOccurs = 1
+   maxOccurs = 1
+   <LiteralData>
+    DataType = string
+    <Default />
+   </LiteralData>
+  [corridorMeters]
+   Title = Search corridor
+   Abstract = Buffer in metres around the start/end envelope used to select routing edges.
+   minOccurs = 0
+   maxOccurs = 1
+   <LiteralData>
+    DataType = float
+    <Default>
+     value = 5000
+     uom = metre
+    </Default>
+   </LiteralData>
+ </DataInputs>
+ <DataOutputs>
+  [Result]
+   Title = Route
+   Abstract = Ordered route segments as a GeoJSON FeatureCollection in EPSG:4326.
+   <ComplexData>
+    <Default>
+     mimeType = application/geo+json
+     encoding = UTF-8
+    </Default>
+    <Supported>
+     mimeType = application/json
+     encoding = UTF-8
+    </Supported>
+   </ComplexData>
+ </DataOutputs>

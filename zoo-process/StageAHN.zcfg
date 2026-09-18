@@ -1,0 +1,62 @@
+[StageAHN]
+ Title = Stage an AHN terrain raster for a route
+ Abstract = Reproject a GeoJSON route to EPSG:28992 and download the matching AHN4 DTM coverage to shared storage.
+ processVersion = 1.0.0
+ storeSupported = true
+ statusSupported = true
+ serviceProvider = ahn_stage_service
+ serviceType = Python
+ <MetaData>
+   title = AHN profile staging
+ </MetaData>
+ <DataInputs>
+  [Geometry]
+   Title = Route geometry
+   Abstract = GeoJSON geometry, feature, or feature collection in EPSG:4326.
+   minOccurs = 1
+   maxOccurs = 1
+   <ComplexData>
+    <Default>
+     mimeType = application/geo+json
+     encoding = UTF-8
+    </Default>
+    <Supported>
+     mimeType = application/json
+     encoding = UTF-8
+    </Supported>
+   </ComplexData>
+  [PaddingMeters]
+   Title = Raster padding
+   Abstract = Padding added around the route envelope before requesting AHN.
+   minOccurs = 0
+   maxOccurs = 1
+   <LiteralData>
+    DataType = float
+    <Default>
+     value = 10
+     uom = metre
+    </Default>
+   </LiteralData>
+ </DataInputs>
+ <DataOutputs>
+  [RasterFile]
+   Title = Staged raster file
+   Abstract = AHN GeoTIFF path relative to the ZOO-Project dataPath.
+   <LiteralData>
+    DataType = string
+    <Default />
+   </LiteralData>
+  [Geometry28992]
+   Title = Reprojected route geometry
+   Abstract = Route geometry transformed to EPSG:28992 for GdalExtractProfile.
+   <ComplexData>
+    <Default>
+     mimeType = application/geo+json
+     encoding = UTF-8
+    </Default>
+    <Supported>
+     mimeType = application/json
+     encoding = UTF-8
+    </Supported>
+   </ComplexData>
+ </DataOutputs>
